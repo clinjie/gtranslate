@@ -124,3 +124,106 @@ func translate(text, from, to string, withVerification bool, tries int, delay ti
 
 	return responseText, nil
 }
+
+func langDetect(text string, tries, delay int) (detectLanguage string, confidence float64, nil error) {
+
+	defer func() {
+		err := recover()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	if (tries == 0) {
+		tries = defaultNumberOfRetries
+	}
+
+	detectLanguage = "un"
+	confidence = 0.0
+
+	from := "auto"
+	to := "en"
+
+	t, _ := otto.ToValue(text)
+
+	urll := "https://translate.google.cn/translate_a/single"
+
+	token := get(t, ttk)
+
+	data := map[string]string{
+		"client": "gtx",
+		"sl":     from,
+		"tl":     to,
+		"hl":     to,
+		// "dt":     []string{"at", "bd", "ex", "ld", "md", "qca", "rw", "rm", "ss", "t"},
+		"ie":   "UTF-8",
+		"oe":   "UTF-8",
+		"otf":  "1",
+		"ssel": "0",
+		"tsel": "0",
+		"kc":   "7",
+		"q":    text,
+	}
+
+	u, err := url.Parse(urll)
+	if err != nil {
+		return detectLanguage, confidence, nil
+	}
+
+	parameters := url.Values{}
+
+	for k, v := range data {
+		parameters.Add(k, v)
+	}
+	for _, v := range []string{"at", "bd", "ex", "ld", "md", "qca", "rw", "rm", "ss", "t"} {
+		parameters.Add("dt", v)
+	}
+
+	parameters.Add("tk", token)
+	u.RawQuery = parameters.Encode()
+
+	var r *http.Response
+
+	for tries > 0 {
+		r, err = http.Get(u.String())
+		if err != nil {
+			if err == http.ErrHandlerTimeout {
+				return detectLanguage, confidence, errBadNetwork
+			}
+			return detectLanguage, confidence, err
+		}
+
+		if r.StatusCode == http.StatusOK {
+			break
+		}
+
+		if r.StatusCode == http.StatusForbidden {
+			tries--
+			time.Sleep(time.Duration(delay) * time.Second)
+		}
+	}
+
+	raw, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return detectLanguage, confidence, err
+	}
+
+	var resp []interface{}
+
+	err = json.Unmarshal([]byte(raw), &resp)
+	if err != nil {
+		return detectLanguage, confidence, err
+	}
+
+	detectLanguage, ok := resp[8].([]interface{})[0].([]interface{})[0].(string)
+	if ok {
+		infoLength := len(resp[8].([]interface{}))
+		confidence, ok = resp[8].([]interface{})[infoLength-2].([]interface{})[0].(float64)
+		if !ok {
+			confidence = 0.0
+		}
+	}
+	
+
+	return detectLanguage, confidence, nil
+}
