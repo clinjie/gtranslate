@@ -10,11 +10,19 @@ This project was inspired by [google-translate-api](https://github.com/matheuss/
 # Use
 
 ```go
+gtranslate.LangDetect("I'm alive", 0, 1)
+```
+
+```go
 gtranslate.Translate("I'm alive", language.English, language.Spanish)
 ```
 
 ```go
 gtranslate.TranslateWithParams("I'm alive", gtranslate.TranslateWithParams{From: "en", To: "es"})
+```
+
+```go
+gtranslate.TranslatePure("I'm alive", "en", "es")
 ```
 
 # Example
@@ -23,25 +31,30 @@ gtranslate.TranslateWithParams("I'm alive", gtranslate.TranslateWithParams{From:
 package main
 
 import (
-	"fmt"
+   "fmt"
 
-	"github.com/bregydoc/gtranslate"
+	"github.com/clinjie/gtranslate"
 )
 
 func main() {
-	text := "Hello World"
-	translated, err := gtranslate.TranslateWithParams(
-		text,
-		gtranslate.TranslationParams{
-			From: "en",
-			To:   "ja",
-		},
-	)
+	text := "you are so green."
+   
+   detectLanguage, confidence, err := gtranslate.LangDetect(text, 0, 1)
+   
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("en: %s | ja: %s \n", text, translated)
-	// en: Hello World | ja: こんにちは世界
+	fmt.Printf("source text is: %s | detect language is: %s | detect language conf is: %f\n", 
+				text, detectLanguage, confidence)
+
+	translateText, err := gtranslate.TranslatePure(text, "en", "zh")
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("source text is: %s | translate text is: %s\n", 
+				text, translateText)
 }
 ```
